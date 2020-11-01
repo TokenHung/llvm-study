@@ -42,7 +42,7 @@ COPY hw1 .
 WORKDIR /advanced-compiler/demo
 COPY demo .
 
-WORKDIR /advanced-compiler
+WORKDIR /advanced-compiler/hw1
 ENV PATH=/advanced-compiler/llvm_build/bin:$PATH
 
 CMD ["bash"]
