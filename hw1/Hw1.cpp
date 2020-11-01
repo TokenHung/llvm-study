@@ -26,4 +26,4 @@ namespace {
 char Hw1::ID = 0;
 //"Hw1" is the name of pass
 //"Hw1 pass written by yenchunli" is the explaination of your pass
-static RegisterPass<Hw1> GS("HW1", "Hw1 pass written by yenchunli");
+static RegisterPass<Hw1> GS("Hw1", "Hw1 pass written by yenchunli");

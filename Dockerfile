@@ -43,7 +43,7 @@ WORKDIR /advanced-compiler/demo
 COPY demo .
 
 WORKDIR /advanced-compiler
-RUN export PATH=/advanced-compiler/llvm_build/bin:$PATH
+ENV PATH=/advanced-compiler/llvm_build/bin:$PATH
 
 CMD ["bash"]
 
