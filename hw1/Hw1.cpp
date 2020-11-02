@@ -26,15 +26,6 @@ namespace {
     std::string arrayX;
   };
 
-  struct finalData {
-        std::string arrayName;
-        int value;
-        int order;
-        int isLeft;
-      };
-
-  std::vector<finalData> vecFinal;
-
   std::vector<arrayData> v1;
   std::map<std::string, arrayData> idxMap;
 
@@ -172,6 +163,54 @@ namespace {
                   
                   break;
                 }
+                case Instruction::Mul:
+                {
+                  //
+                  Value *tmp1 = itrIns->getOperand(0);
+                  Value *tmp2 = itrIns->getOperand(1);
+                  errs() << "=======================================\n";
+                  errs() << "Mul\n" << "tmp1=" << *tmp1 << "\ntmp2=" << *tmp2 << "\n";
+                  
+                  
+                  if(ConstantInt* Integer = dyn_cast<ConstantInt>(tmp1)){
+                    value = Integer->getZExtValue();
+                    //errs() << "value=" << value << "\n";
+                  }
+
+                  if(Instruction *I = dyn_cast<Instruction>(tmp2)) {
+                    Value *tmp3 = I->getOperand(0);
+                    name = tmp3->getName();
+                  }
+                  
+                  errs() << name <<" = " << name << " - " << value << "\n";
+                  node.mul *= value;
+                  errs() << "=======================================\n";
+                  break;
+                }
+                case Instruction::Add:
+                {
+                  //
+                  Value *tmp1 = itrIns->getOperand(0);
+                  Value *tmp2 = itrIns->getOperand(1);
+                  errs() << "=======================================\n";
+                  errs() << "Sub\n" << "tmp1=" << *tmp1 << "\ntmp2=" << *tmp2 << "\n";
+                  
+                  
+                  if(ConstantInt* Integer = dyn_cast<ConstantInt>(tmp2)){
+                    value = Integer->getZExtValue();
+                    //errs() << "value=" << value << "\n";
+                  }
+
+                  if(Instruction *I = dyn_cast<Instruction>(tmp1)) {
+                    Value *tmp3 = I->getOperand(0);
+                    name = tmp3->getName();
+                  }
+                  
+                  errs() << name <<" = " << name << " - " << value << "\n";
+                  node.add += value;
+                  errs() << "=======================================\n";
+                  break;
+                }
                 case Instruction::Sub:
                 {
                   //
@@ -272,30 +311,37 @@ namespace {
         }
       }
 
-      
+      struct finalData {
+        std::string arrayName;
+        int value;
+        int order;
+        int isLeft;
+      };
+
+      std::vector<finalData> vecFinal;
       
 
       for(int i=minIndex; i < maxIndex; i++){
         for(std::vector<arrayData>::iterator it = v1.begin(); it != v1.end(); it++) {
-          errs() << it->arrayName << "[" << it->mul*i + it->add << "] ";
+          //errs() << it->arrayName << "[" << it->mul*i + it->add << "] ";
           
           finalData d;
           d.arrayName = it->arrayName;
           d.value = it->mul*i + it->add;
           d.order = i;
-          d.isLeft = 1;
+          d.isLeft = 0;
           vecFinal.push_back(d);
           it++;
           
-          errs() << it->arrayName << "[" << it->mul*i + it->add << "]\n";
+          //errs() << it->arrayName << "[" << it->mul*i + it->add << "]\n";
           
           finalData d2;
           d2.arrayName = it->arrayName;
           d2.value = it->mul*i + it->add;
           d2.order = i;
-          d2.isLeft = 0;
+          d2.isLeft = 1;
           vecFinal.push_back(d2);
-          it++;
+          
           
         }
       }
@@ -304,17 +350,29 @@ namespace {
       
       for(auto &v1 : vecFinal) {
         for(auto &v2 : vecFinal) {
-          if(v1.arrayName == v2.arrayName && v1.value == v2.value && v1.order < v2.order)
-            errs() << "[flow   dependency] i=" << v1.value << " --> " << v2.value << "\n";
-            
+          
+          if(v1.isLeft == 1 && v2.isLeft == 0 && v1.arrayName == v2.arrayName && v1.value == v2.value && v1.order <= v2.order){
+            //errs() << v1.isLeft << v1.arrayName << v1.value << v2.arrayName  << v2.value << v1.order << v2.order << "\n";
+            errs() << "[flow   dependency] i=" << v1.order << " --> " << v2.order << "\n";
+          }
+          
+          if(v1.isLeft == 1 && v2.isLeft == 1 && v1.arrayName == v2.arrayName && v1.value == v2.value && v1.order < v2.order){
+            //errs() << v1.isLeft << v1.arrayName << v1.value << v2.arrayName  << v2.value << v1.order << v2.order << "\n";
+            errs() << "[output dependency] i=" << v1.order << " --> " << v2.order << "\n";
+          }
+          if(v1.isLeft == 0 && v2.isLeft == 1 && v1.arrayName == v2.arrayName && v1.value == v2.value && v1.order < v2.order){
+            //errs() << v1.isLeft << v1.arrayName << v1.value << v2.arrayName  << v2.value << v1.order << v2.order << "\n";
+            errs() << "[anti   dependency] i=" << v1.order << " --> " << v2.order << "\n";
+          }
+          
         }
       }
       
-      
+      /*
       for(auto &v1: vecFinal) {
         errs() << v1.arrayName << v1.value << v1.order << v1.isLeft << "\n";
       }
-      
+      */
       
 
       
