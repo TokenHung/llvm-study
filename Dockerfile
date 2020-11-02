@@ -44,6 +44,7 @@ COPY demo .
 
 WORKDIR /advanced-compiler/hw1
 ENV PATH=/advanced-compiler/llvm_build/bin:$PATH
+RUN make
 
 CMD ["bash"]
 
