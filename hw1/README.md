@@ -100,8 +100,11 @@ for.cond:           ; preds = %for.inc, %entry
 > Block `for.body` executes the core logic of the for-loop.
 
 There are several instructions we might encounter.
-- Load
-- Store
+- load
+- store
+- add
+- sub
+- mul
 
 #### Instructions::Load
 
@@ -138,8 +141,11 @@ else if(Instruction *I = dyn_cast<Instruction>(tmp1)) {
 
 #### Instruction::Store
 
-#### Instruction::Add Instruction::Mul Instruction::Sub
+#### Instruction::Add
 
+#### Instruction::Mul
+
+#### Instruction::Sub
 
 
 
