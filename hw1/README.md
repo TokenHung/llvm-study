@@ -1,10 +1,17 @@
 # HW1 Loop Dependence
 
-## Code Analysis
+## 1. Code Analysis
 
-First, we split `test1.ll` into 5 sections. They are:
+### 1-1 Global variables
 
-- [entry](###entry)
+In this paragraph, I will introduce the global variables I use and their usage.
+
+
+### 1-2 Stuctures
+
+we split `test1.ll` into 5 blocks. They are:
+
+- [entry](####entry)
 - [for.cond](###for.cond)
 - [for.body](###for.body)
 - [for.inc](###for.inc)
@@ -15,7 +22,7 @@ We can use `BB->getName().find()` to find the block title. For example, if we wa
 if(!BB->getName().find("entry", 0)) //matched
 ```
 
-### entry
+#### 1-2.1 entry
 
 > Block `entry` initializes the variables which are not put inside the for-loop.
 
@@ -32,23 +39,21 @@ switch(itrIns->getOpcode()) {
 
 Once we fetch `Instruction::Store`, we can use `getOperand()` to get the left/right side of intructions.
 ```c
-Value *tmp1 = itrIns->getOperand(0); // tmp1 = 
-Value *tmp2 = itrIns->getOperand(1); // tmp2 = 
+Value *tmp1 = itrIns->getOperand(0); // i32 4
+Value *tmp2 = itrIns->getOperand(1); // %i = alloca i32, align 4
 ```
 
 `tmp1` stores the integer value, we can use `getZExtValue()` to get the value.
 ```c
 if(ConstantInt* Integer = dyn_cast<ConstantInt>(tmp1)){
-  value = Integer->getZExtValue();
-  //errs() << "value=" << value << "\n";
+  value = Integer->getZExtValue(); // 4
 }
 ```
 
-`tmp2` stores the instructions `???`, we can use `getName()` to get which variable it stores in.
+`tmp2` stores the instructions `%i = alloca i32, align 4`, we can use `getName()` to get which variable it stores in.
 ```c
 if(Instruction *I = dyn_cast<Instruction>(tmp2)){
-  name = I->getName();
-  //errs() << "name=" << name << "\n";
+  name = I->getName(); // i
 }
 ```
 
@@ -73,11 +78,18 @@ entry:
 > Block `for.cond` initialize the for-loop condition block.
 
 we fetch the instruction `icmp` to get the for-loop uppder bound. Then uses `getOperand(1)` and `getZExtValue()` to get the max index of the for-loop.
+
+| var or func          | value                           |
+|-|-|
+|itrIns                | %cmp = icmp slt i32 %0, 20      |
+|itrIns->getOperand(0) | %0 = load i32, i32* %i, align 4 |
+|itrIns->getOperand(1) | i32 20                          |
+
 ```c
 if(!strcmp("icmp", itrIns->getOpcodeName())) {
   if(ConstantInt* Integer = dyn_cast<ConstantInt>(itrIns->getOperand(1))) {
-      maxIndex = Integer->getZExtValue();
-      //errs() << "maxIndex=" << maxIndex << "\n";
+    maxIndex = Integer->getZExtValue(); // 20
+      
   }
 }
 ```
@@ -100,17 +112,31 @@ for.cond:           ; preds = %for.inc, %entry
 > Block `for.body` executes the core logic of the for-loop.
 
 There are several instructions we might encounter.
-- Load
-- Store
+- load
+- store
+- add
+- sub
+- mul
 
 #### Instructions::Load
 
-There are two conditions of `load` we face:
+There are two conditions of `load`:
 
 1. `load i32, i32* %i, align 4`         
 2. `load i32, i32* %arrayidx, align 4`
 
-> Condition 1: `load %i` means we are going to initialize an array.
+And the llvm language also different
+
+Here we first use `getOperand(0)` and store the value into `Value *tmp1`.
+```c
+Value *tmp1 = itrIns->getOperand(0);
+```
+
+We can find the two kind of tmp1:
+1. `tmp1=  %i = alloca i32, align 4`
+2. `tmp1=  %arrayidx = getelementptr inbounds [20 x i32], [20 x i32]* %C, i64 0, i64 %idxprom`
+
+> **Condition 1**: `load %i` means we are going to initialize an array.
 ```c
 if(!tmp1->getName().find("i", 0)) {
   node.add = 0;
@@ -120,9 +146,9 @@ if(!tmp1->getName().find("i", 0)) {
 }
 ```
 
-> Condition 2: load %arrayidx means we finally complete all the calculation of array index.
+> **Condition 2**: load %arrayidx means we finally complete all the calculation of array index.
 ```c
-else if(Instruction *I = dyn_cast<Instruction>(tmp1)) {
+if(Instruction *I = dyn_cast<Instruction>(tmp1)) {
   if(I->getOpcode() == Instruction::GetElementPtr) {
       Value *tmp3 = I->getOperand(0);
       arrayName = tmp3->getName();
@@ -138,7 +164,89 @@ else if(Instruction *I = dyn_cast<Instruction>(tmp1)) {
 
 #### Instruction::Store
 
-#### Instruction::Add Instruction::Mul Instruction::Sub
+We use `getOperand()` to get left/right side of `store` instruction.
+```c
+Value *tmp1 = itrIns->getOperand(0); //???
+Value *tmp2 = itrIns->getOperand(1); //???
+```
+
+Check the tmp1 first, if `tmp1` `hasName()`, function `getLoadDef` help us find the original variable name recursively.
+In `getLoadDef`, it will change two global variables, `arrayName` and `arrayIdx`, which means the variable mapping stored in `std::map idxMap`.
+
+```c
+if(!tmp1->hasName()) {
+  getLoadDef(tmp1);
+  v1.push_back(idxMap[arrayIdx]);
+}
+```
+
+After checking `tmp1`, we now check `tmp2`. If `tmp2` is a instruction and its Opcode is `Instruction::GetElementPtr`, then we use `getOperand(0)` and `getName()` to get the variable name. We store the result into the `node.arrayName` and put into the idxMap which used `tmp2->getName()` as its key.
+```c
+if(Instruction *I = dyn_cast<Instruction>(tmp2)) {
+  if(I->getOpcode() == Instruction::GetElementPtr) {
+      Value *tmp3 = I->getOperand(0);
+      arrayName = tmp3->getName();
+      node.arrayName = arrayName;
+      idxMap[tmp2->getName()] = node;
+  }
+}
+```
+    
+We use `getLoadDef` to fetch the `tmp2` variable recursively and push into `std::vector v1`;
+```c
+getLoadDef(tmp2);
+v1.push_back(idxMap[arrayIdx]);
+```
+
+#### Instruction::Add
+
+First we use `getOperand()` to get left/right side of `add` instruction.
+```c
+Value *tmp1 = itrIns->getOperand(0);
+Value *tmp2 = itrIns->getOperand(1);
+```
+
+For the right side, we use `getZExtValue()` to get the integer.
+```c
+if(ConstantInt* Integer = dyn_cast<ConstantInt>(tmp2)){
+  value = Integer->getZExtValue();
+}
+```
+
+For the left side, we first use `dyn_cast<Instruction>` to fetch. Then use `getOperand(0)` and `getName()` to get the variable.
+```c
+if(Instruction *I = dyn_cast<Instruction>(tmp1)) {
+  Value *tmp3 = I->getOperand(0);
+  name = tmp3->getName();
+}
+```
+
+Finally, we calculate the value and store it back to the current node and update `node.add`.
+```c
+node.add += value;
+```
+
+#### Instruction::Sub
+
+Almost same as `Instruction:Add`. The only difference is store the negative value back to the current node.
+```c
+node.add -= value;
+```
+
+#### Instruction::Mul
+
+Some difference when we use `getOperand()`.
+```c
+Value *tmp1 = itrIns->getOperand(0);
+Value *tmp2 = itrIns->getOperand(1);
+```
+
+The left/right side is different from `Instruction::Add` and `Instruction::Sub`.
+
+Finally we store the value back to the current node and update `node.mul`.
+```c
+node.mul *= value;
+```
 
 
 
@@ -146,7 +254,8 @@ else if(Instruction *I = dyn_cast<Instruction>(tmp1)) {
 
 
 
-```c=
+
+```c
 for.body:                          ; preds = %for.cond
 
   // Calculate C[i]
@@ -195,7 +304,7 @@ for.body:                          ; preds = %for.cond
 
 ### for.inc
 
-```c=
+```c
 for.inc:                                          ; preds = %for.body
   // %7 = %i
   // %inc = %7 + 1
@@ -207,7 +316,7 @@ for.inc:                                          ; preds = %for.body
   br label %for.cond
 ```
 
-```c=
+```c
 int main(void) {
     int i, A[20], C[20], D[20];
 

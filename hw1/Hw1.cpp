@@ -81,21 +81,21 @@ namespace {
                 case Instruction::Store:
                   Value *tmp1 = itrIns->getOperand(0);
                   Value *tmp2 = itrIns->getOperand(1);
-                  //errs() << "=======================================\n";
-                  //errs() << "store" << "\ntmp1=" << *tmp1 << "\ntmp2=" << *tmp2 << "\n";
-                  //errs() << "=======================================\n";
+                  
+                  errs() << "[00000] store" << "\ntmp1=" << *tmp1 << "\ntmp2=" << *tmp2 << "\n";
+                  
                   int value;
                   std::string name;
                   if(ConstantInt* Integer = dyn_cast<ConstantInt>(tmp1)){
                     value = Integer->getZExtValue();
-                    //errs() << "value=" << value << "\n";
+                    errs() << "[00001] value=" << value << "\n";
                   }
-                  //errs() << "tmp2=" << *tmp2 << "\n";
+                  
                   if(Instruction *I = dyn_cast<Instruction>(tmp2)){
                     name = I->getName();
-                    //errs() << "name=" << name << "\n";
+                    errs() << "[00002] name=" << name << "\n";
                   }
-                  //errs() << name << "=" << value << "\n";
+                  
                   valueMap[name] = value;
 
                   break;
@@ -105,13 +105,14 @@ namespace {
           }
           // for.cond is the start of the for block
           if(!BB->getName().find("for.cond", 0)) {
-            errs() << "for.cond" << "\n";
+            //errs() << "for.cond" << "\n";
             minIndex = valueMap["i"];
             for (BasicBlock::iterator itrIns = (*BB).begin(); itrIns != (*BB).end(); itrIns++) {
               if(!strcmp("icmp", itrIns->getOpcodeName())) {
+                errs() << "[00003]" << *(itrIns->getOperand(0)) << "\n";
+                errs() << "[00004]" << *(itrIns->getOperand(1)) << "\n";
                 if(ConstantInt* Integer = dyn_cast<ConstantInt>(itrIns->getOperand(1))) {
-                    maxIndex = Integer->getZExtValue();
-                    //errs() << "maxIndex=" << maxIndex << "\n";
+                    maxIndex = Integer->getZExtValue();                    
                 }
                 
               }
@@ -119,9 +120,6 @@ namespace {
           }
           
           arrayData node;
-
-          //int addValue = 0;
-          //int mulValue = 1;
 
           // for.body is the start of the for block
           if(!BB->getName().find("for.body", 0)) {
