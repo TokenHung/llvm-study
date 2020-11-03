@@ -1,5 +1,15 @@
 # HW1 Loop Dependence
 
+106062209 Yen-Chun Li
+
+## Environment
+
+I write a dockerfile to set up the llvm environment. You can run the following commands to build docker and enter it.
+```bash
+docker build -t llvm9 .
+docker run -t llvm9
+```
+
 ## Code Analysis
 
 ### Global variables
@@ -40,7 +50,7 @@ We can use `BB->getName().find()` to find the block title. For example, if we wa
 if(!BB->getName().find("entry", 0)) //matched
 ```
 
-#### 1-2.1 entry
+#### entry
 
 > Block `entry` initializes the variables which are not put inside the for-loop.
 
