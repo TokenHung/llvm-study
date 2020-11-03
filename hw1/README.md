@@ -1,15 +1,33 @@
 # HW1 Loop Dependence
 
-## 1. Code Analysis
+## Code Analysis
 
-### 1-1 Global variables
+### Global variables
 
-In this paragraph, I will introduce the global variables I use and their usage.
+```c
+std::map<std::string, int> valueMap;  // used in for.cond
+
+int maxIndex;  // for loop max index
+int minIndex;  // for loop min index
+std::string arrayName;  // store the array name loaded by getLoadDef()
+std::string arrayIdx;   // store the array index string loaded by getLoadDef()
+
+// arrayData stores the array details
+struct arrayData {
+  int mul;                        // number to multiply
+  int add;                        // number to add/sub
+  std::string arrayName;          // array name
+  std::string arrayX;             // iterator name (ex: i)
+};
+
+std::vector<arrayData> v1;        // store the arrayData, which will be analyzed
+std::map<std::string, arrayData> idxMap; // store the arrayidx mapping data, so we can find the arrayidx number by checking this map
+```
 
 
-### 1-2 Stuctures
+### Stuctures
 
-we split `test1.ll` into 5 blocks. They are:
+For example, we can split `test1.ll` into 5 blocks. They are:
 
 - [entry](####entry)
 - [for.cond](###for.cond)
@@ -166,8 +184,8 @@ if(Instruction *I = dyn_cast<Instruction>(tmp1)) {
 
 We use `getOperand()` to get left/right side of `store` instruction.
 ```c
-Value *tmp1 = itrIns->getOperand(0); //???
-Value *tmp2 = itrIns->getOperand(1); //???
+Value *tmp1 = itrIns->getOperand(0); // %5 = load i32, i32* %arrayidx4, align 4
+Value *tmp2 = itrIns->getOperand(1); // %arrayidx6 = getelementptr inbounds [20 x i32], [20 x i32]* %D, i64 0, i64 %idxprom5
 ```
 
 Check the tmp1 first, if `tmp1` `hasName()`, function `getLoadDef` help us find the original variable name recursively.
@@ -304,6 +322,8 @@ for.body:                          ; preds = %for.cond
 
 ### for.inc
 
+In general, we need to process `for.inc` to get the iterator. But this time we can find that `test1.ll`, `test2.ll`, `test3.ll` are all increase by 1. We can skip this step.
+
 ```c
 for.inc:                                          ; preds = %for.body
   // %7 = %i
@@ -316,15 +336,155 @@ for.inc:                                          ; preds = %for.body
   br label %for.cond
 ```
 
+## Dependency Analysis
+
+We define a struct `finalData` to store the proccessed array data.
+We declare a vector `vecFinal` to store all the generated array data.
+
+| struct var | Usage |
+|-|-|
+| arrayName | Array Name |
+| value     | actual value of a*i+b |
+| order     | for-loop index  | 
+| isLeft    | on the left side of equation mark |
+
 ```c
-int main(void) {
-    int i, A[20], C[20], D[20];
+struct finalData {
+  std::string arrayName;
+  int value;
+  int order;
+  int isLeft;
+};
 
-    for(i = 4; i < 20; i++) {
-        A[i] = C[i];
-        D[i] = A[i-4];
-    }
+std::vector<finalData> vecFinal;
+```
 
-    return 0;
+Now we start to generate corresponding array data and push into `vecFinal`.
+```c
+for(int i=minIndex; i < maxIndex; i++){
+  for(std::vector<arrayData>::iterator it = v1.begin(); it != v1.end(); it++) {
+    finalData d;
+    d.arrayName = it->arrayName;
+    d.value = it->mul*i + it->add;
+    d.order = i;
+    d.isLeft = 0;
+    vecFinal.push_back(d);
+    it++;
+    
+    finalData d2;
+    d2.arrayName = it->arrayName;
+    d2.value = it->mul*i + it->add;
+    d2.order = i;
+    d2.isLeft = 1;
+    vecFinal.push_back(d2);
+  }
 }
+```
+
+We check the three dependency here. Take a example.
+
+```c
+A[4] = C[4]    // order = 4
+D[4] = A[0]    // order = 5
+C[4] = A[1]    // order = 6
+D[4] = A[4]    // order = 7
+```
+
+The `finalData` of all array is:
+
+| order  | Array  | isLeft |
+|-|-|-|
+|4|A[4]|1|
+|4|C[4]|0|
+|5|D[4]|1|
+|5|A[0]|0|
+|6|C[4]|1|
+|6|A[1]|0|
+|7|D[4]|1|
+|7|A[4]|0|
+
+
+```c
+for(auto &v1 : vecFinal) {
+  for(auto &v2 : vecFinal) {
+    
+    if(v1.isLeft == 1 && v2.isLeft == 0 && v1.arrayName == v2.arrayName && v1.value == v2.value && v1.order <= v2.order){
+      errs() << "[flow   dependency] i=" << v1.order << " --> " << v2.order << "\n";
+    }
+    
+    if(v1.isLeft == 1 && v2.isLeft == 1 && v1.arrayName == v2.arrayName && v1.value == v2.value && v1.order < v2.order){
+      errs() << "[output dependency] i=" << v1.order << " --> " << v2.order << "\n";
+    }
+    if(v1.isLeft == 0 && v2.isLeft == 1 && v1.arrayName == v2.arrayName && v1.value == v2.value && v1.order < v2.order){
+      errs() << "[anti   dependency] i=" << v1.order << " --> " << v2.order << "\n";
+    }
+    
+  }
+}
+```
+
+## Output
+
+```bash
+[flow   dependency] A[4] i=4 --> 8
+[flow   dependency] A[5] i=5 --> 9
+[flow   dependency] A[6] i=6 --> 10
+[flow   dependency] A[7] i=7 --> 11
+[flow   dependency] A[8] i=8 --> 12
+[flow   dependency] A[9] i=9 --> 13
+[flow   dependency] A[10] i=10 --> 14
+[flow   dependency] A[11] i=11 --> 15
+[flow   dependency] A[12] i=12 --> 16
+[flow   dependency] A[13] i=13 --> 17
+[flow   dependency] A[14] i=14 --> 18
+[flow   dependency] A[15] i=15 --> 19
+===test2.ll===
+[anti   dependency] A[13] i=2 --> 6
+[anti   dependency] A[19] i=3 --> 8
+[anti   dependency] A[25] i=4 --> 10
+[anti   dependency] A[31] i=5 --> 12
+[anti   dependency] A[37] i=6 --> 14
+[anti   dependency] A[43] i=7 --> 16
+[anti   dependency] A[49] i=8 --> 18
+[anti   dependency] A[55] i=9 --> 20
+[anti   dependency] A[61] i=10 --> 22
+[anti   dependency] A[67] i=11 --> 24
+[anti   dependency] A[73] i=12 --> 26
+[anti   dependency] A[79] i=13 --> 28
+[anti   dependency] A[85] i=14 --> 30
+[anti   dependency] A[91] i=15 --> 32
+[anti   dependency] A[97] i=16 --> 34
+[anti   dependency] A[103] i=17 --> 36
+[anti   dependency] A[109] i=18 --> 38
+[anti   dependency] A[115] i=19 --> 40
+[anti   dependency] A[121] i=20 --> 42
+[anti   dependency] A[127] i=21 --> 44
+[anti   dependency] A[133] i=22 --> 46
+[anti   dependency] A[139] i=23 --> 48
+===test3.ll===
+[output dependency] D[0] i=0 --> 1
+[output dependency] D[1] i=1 --> 2
+[flow   dependency] A[2] i=2 --> 2
+[output dependency] D[2] i=2 --> 3
+[anti   dependency] A[5] i=3 --> 5
+[output dependency] D[3] i=3 --> 4
+[anti   dependency] A[8] i=4 --> 8
+[output dependency] D[4] i=4 --> 5
+[anti   dependency] A[11] i=5 --> 11
+[output dependency] D[5] i=5 --> 6
+[anti   dependency] A[14] i=6 --> 14
+[output dependency] D[6] i=6 --> 7
+[anti   dependency] A[17] i=7 --> 17
+[output dependency] D[7] i=7 --> 8
+[output dependency] D[8] i=8 --> 9
+[output dependency] D[9] i=9 --> 10
+[output dependency] D[10] i=10 --> 11
+[output dependency] D[11] i=11 --> 12
+[output dependency] D[12] i=12 --> 13
+[output dependency] D[13] i=13 --> 14
+[output dependency] D[14] i=14 --> 15
+[output dependency] D[15] i=15 --> 16
+[output dependency] D[16] i=16 --> 17
+[output dependency] D[17] i=17 --> 18
+[output dependency] D[18] i=18 --> 19
 ```

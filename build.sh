@@ -1,2 +1,2 @@
-docker build -t llvm-9.0.0 .
-docker run -it llvm-9.0.0
+docker build -t llvm9 .
+docker run -it llvm9
