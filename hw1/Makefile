@@ -4,13 +4,13 @@ CXX=`$(LLVM_CONFIG) --bindir`/clang
 CXXFLAGS=`$(LLVM_CONFIG) --cppflags` -fPIC -fno-rtti
 LDFLAGS=`$(LLVM_CONFIG) --ldflags`
 
-all: Hw1.so Test
+all: hw1.so Test
 
-Hw1.so: Hw1.o
-	$(CXX) -shared Hw1.o $(LDFLAGS) -fPIC -o Hw1.so
+hw1.so: hw1.o
+	$(CXX) -shared hw1.o $(LDFLAGS) -fPIC -o hw1.so
 
-Hw1.o: Hw1.cpp
-	$(CXX) -c Hw1.cpp $(CXXFLAGS) -o Hw1.o
+hw1.o: hw1.cpp
+	$(CXX) -c hw1.cpp $(CXXFLAGS) -o hw1.o
 
 Test: test1.c test2.c test3.c
 	$(CXX) -S -emit-llvm test1.c -o test1.ll

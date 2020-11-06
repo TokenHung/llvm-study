@@ -11,7 +11,6 @@ using namespace llvm;
 
 namespace {
 
-  std::map<std::string, std::string> variableMap;
   std::map<std::string, int> valueMap;
 
   int maxIndex;
@@ -43,7 +42,7 @@ namespace {
             Value *tmp = I->getOperand(0);
             //%ArrayName = alloca [20 x i32], align 16
             std::string name = tmp->getName();
-            //variableMap[I->getName()] = name;
+            
             //errs() << I->getName() << " " << name << "\n";
             //tmp->dump();
             arrayName = name;
@@ -62,7 +61,7 @@ namespace {
     }
     
     virtual bool runOnModule(Module &M) {
-      errs() << "I'm going to find Loop Dependence." << "\n";
+      //errs() << "I'm going to find Loop Dependence." << "\n";
       
       //whole *.bc is a module,module's iterator F is class of a function
       for (Module::iterator F = M.begin(); F != M.end(); F++){
@@ -75,27 +74,27 @@ namespace {
         {
           // entry block initialize the variables
           if(!BB->getName().find("entry", 0)) {
-            errs() << "entry" << "\n";
+            //errs() << "entry" << "\n";
             for (BasicBlock::iterator itrIns = (*BB).begin(); itrIns != (*BB).end(); itrIns++) {
               switch(itrIns->getOpcode()) {
                 case Instruction::Store:
                   Value *tmp1 = itrIns->getOperand(0);
                   Value *tmp2 = itrIns->getOperand(1);
-                  //errs() << "=======================================\n";
-                  //errs() << "store" << "\ntmp1=" << *tmp1 << "\ntmp2=" << *tmp2 << "\n";
-                  //errs() << "=======================================\n";
+                  
+                  //errs() << "[00000] store" << "\ntmp1=" << *tmp1 << "\ntmp2=" << *tmp2 << "\n";
+                  
                   int value;
                   std::string name;
                   if(ConstantInt* Integer = dyn_cast<ConstantInt>(tmp1)){
                     value = Integer->getZExtValue();
-                    //errs() << "value=" << value << "\n";
+                    //errs() << "[00001] value=" << value << "\n";
                   }
-                  //errs() << "tmp2=" << *tmp2 << "\n";
+                  
                   if(Instruction *I = dyn_cast<Instruction>(tmp2)){
                     name = I->getName();
-                    //errs() << "name=" << name << "\n";
+                    //errs() << "[00002] name=" << name << "\n";
                   }
-                  //errs() << name << "=" << value << "\n";
+                  
                   valueMap[name] = value;
 
                   break;
@@ -105,13 +104,14 @@ namespace {
           }
           // for.cond is the start of the for block
           if(!BB->getName().find("for.cond", 0)) {
-            errs() << "for.cond" << "\n";
+            //errs() << "for.cond" << "\n";
             minIndex = valueMap["i"];
             for (BasicBlock::iterator itrIns = (*BB).begin(); itrIns != (*BB).end(); itrIns++) {
               if(!strcmp("icmp", itrIns->getOpcodeName())) {
+                //errs() << "[00003]" << *(itrIns->getOperand(0)) << "\n";
+                //errs() << "[00004]" << *(itrIns->getOperand(1)) << "\n";
                 if(ConstantInt* Integer = dyn_cast<ConstantInt>(itrIns->getOperand(1))) {
-                    maxIndex = Integer->getZExtValue();
-                    //errs() << "maxIndex=" << maxIndex << "\n";
+                    maxIndex = Integer->getZExtValue();                    
                 }
                 
               }
@@ -120,12 +120,9 @@ namespace {
           
           arrayData node;
 
-          //int addValue = 0;
-          //int mulValue = 1;
-
           // for.body is the start of the for block
           if(!BB->getName().find("for.body", 0)) {
-            errs() << "for.body" << "\n";
+            //errs() << "for.body" << "\n";
             for (BasicBlock::iterator itrIns = (*BB).begin(); itrIns != (*BB).end(); itrIns++){
               
               int value;
@@ -138,9 +135,9 @@ namespace {
                   Value *tmp1 = itrIns->getOperand(0);
                   //Value *tmp2 = itrIns->getOperand(1);
 
-                  errs() << "Load\n" << "tmp1=" << *tmp1 << "\n";
+                  //errs() << "Load\n" << "tmp1=" << *tmp1 << "\n";
 
-                  errs() << "getName=" << tmp1->getName() << "\n";
+                  //errs() << "getName=" << tmp1->getName() << "\n";
                   
                   if(!tmp1->getName().find("i", 0)) {
                     node.add = 0;
@@ -152,10 +149,10 @@ namespace {
                       if(I->getOpcode() == Instruction::GetElementPtr) {
                           Value *tmp3 = I->getOperand(0);
                           arrayName = tmp3->getName();
-                          //variableMap[I->getName()] = name;
+                          
                           //errs() << "arrayName=" << arrayName << "\n";
                           node.arrayName = arrayName;
-                          errs() << "node=" << node.add << node.mul << node.arrayName << node.arrayX << "\n";
+                          //errs() << "node=" << node.add << node.mul << node.arrayName << node.arrayX << "\n";
                           idxMap[tmp1->getName()] = node;
                           
                       }
@@ -168,8 +165,8 @@ namespace {
                   //
                   Value *tmp1 = itrIns->getOperand(0);
                   Value *tmp2 = itrIns->getOperand(1);
-                  errs() << "=======================================\n";
-                  errs() << "Mul\n" << "tmp1=" << *tmp1 << "\ntmp2=" << *tmp2 << "\n";
+                  //errs() << "=======================================\n";
+                  //errs() << "Mul\n" << "tmp1=" << *tmp1 << "\ntmp2=" << *tmp2 << "\n";
                   
                   
                   if(ConstantInt* Integer = dyn_cast<ConstantInt>(tmp1)){
@@ -182,9 +179,9 @@ namespace {
                     name = tmp3->getName();
                   }
                   
-                  errs() << name <<" = " << name << " - " << value << "\n";
+                  //errs() << name <<" = " << name << " - " << value << "\n";
                   node.mul *= value;
-                  errs() << "=======================================\n";
+                  //errs() << "=======================================\n";
                   break;
                 }
                 case Instruction::Add:
@@ -192,8 +189,8 @@ namespace {
                   //
                   Value *tmp1 = itrIns->getOperand(0);
                   Value *tmp2 = itrIns->getOperand(1);
-                  errs() << "=======================================\n";
-                  errs() << "Sub\n" << "tmp1=" << *tmp1 << "\ntmp2=" << *tmp2 << "\n";
+                  //errs() << "=======================================\n";
+                  //errs() << "Sub\n" << "tmp1=" << *tmp1 << "\ntmp2=" << *tmp2 << "\n";
                   
                   
                   if(ConstantInt* Integer = dyn_cast<ConstantInt>(tmp2)){
@@ -206,9 +203,9 @@ namespace {
                     name = tmp3->getName();
                   }
                   
-                  errs() << name <<" = " << name << " - " << value << "\n";
+                  //errs() << name <<" = " << name << " - " << value << "\n";
                   node.add += value;
-                  errs() << "=======================================\n";
+                  //errs() << "=======================================\n";
                   break;
                 }
                 case Instruction::Sub:
@@ -216,8 +213,8 @@ namespace {
                   //
                   Value *tmp1 = itrIns->getOperand(0);
                   Value *tmp2 = itrIns->getOperand(1);
-                  errs() << "=======================================\n";
-                  errs() << "Sub\n" << "tmp1=" << *tmp1 << "\ntmp2=" << *tmp2 << "\n";
+                  //errs() << "=======================================\n";
+                  //errs() << "Sub\n" << "tmp1=" << *tmp1 << "\ntmp2=" << *tmp2 << "\n";
                   
                   
                   if(ConstantInt* Integer = dyn_cast<ConstantInt>(tmp2)){
@@ -230,21 +227,21 @@ namespace {
                     name = tmp3->getName();
                   }
                   
-                  errs() << name <<" = " << name << " - " << value << "\n";
+                  //errs() << name <<" = " << name << " - " << value << "\n";
                   node.add -= value;
-                  errs() << "=======================================\n";
+                  //errs() << "=======================================\n";
                   break;
                 }
                 case Instruction::Store:
                 {
-                  errs() << "============================\nStore\n";
+                  //errs() << "============================\nStore\n";
 
                   //tmp1 = tmp2 in c code.
                   Value *tmp1 = itrIns->getOperand(0);
                   Value *tmp2 = itrIns->getOperand(1);
-                  errs() << "=======================================\n";
-                  errs() << "store\n" << "tmp1=" << *tmp1 << "\ntmp2=" << *tmp2 << "\n";
-                  errs() << "=======================================\n";
+                  //errs() << "=======================================\n";
+                  //errs() << "store\n" << "tmp1=" << *tmp1 << "\ntmp2=" << *tmp2 << "\n";
+                  //errs() << "=======================================\n";
 
                   if(!tmp1->hasName()) {
                     getLoadDef(tmp1);
@@ -253,7 +250,7 @@ namespace {
                     
                     //errs() << "arrayIdx=" << arrayIdx << "\n";
                     //errs() << "tmp1=" << *tmp1 << "\n";
-                    errs() << "left " << idxMap[arrayIdx].arrayName << "[" << idxMap[arrayIdx].mul << "*" << idxMap[arrayIdx].arrayX << "+" << idxMap[arrayIdx].add << "]\n";
+                    //errs() << "left " << idxMap[arrayIdx].arrayName << "[" << idxMap[arrayIdx].mul << "*" << idxMap[arrayIdx].arrayX << "+" << idxMap[arrayIdx].add << "]\n";
                     v1.push_back(idxMap[arrayIdx]);
                   }
 
@@ -261,17 +258,17 @@ namespace {
                     if(I->getOpcode() == Instruction::GetElementPtr) {
                         Value *tmp3 = I->getOperand(0);
                         arrayName = tmp3->getName();
-                        //variableMap[I->getName()] = name;
+                       
                         //errs() << "arrayName=" << arrayName << "\n";
                         node.arrayName = arrayName;
-                        errs() << "node=" << node.add << node.mul << node.arrayName << node.arrayX << "\n";
+                        //errs() << "node=" << node.add << node.mul << node.arrayName << node.arrayX << "\n";
                         idxMap[tmp2->getName()] = node;
                         
                     }
                   }
                   
                   getLoadDef(tmp2);
-                  errs() << "right " << idxMap[arrayIdx].arrayName << "[" << idxMap[arrayIdx].mul << "*" << idxMap[arrayIdx].arrayX << "+" << idxMap[arrayIdx].add << "]\n";
+                  //errs() << "right " << idxMap[arrayIdx].arrayName << "[" << idxMap[arrayIdx].mul << "*" << idxMap[arrayIdx].arrayX << "+" << idxMap[arrayIdx].add << "]\n";
                   v1.push_back(idxMap[arrayIdx]);
                   //errs() << "arrayName=" << arrayName << "\n";
                   //right.arrayName = arrayName;
@@ -284,7 +281,7 @@ namespace {
                       if(I->getOpcode() == Instruction::GetElementPtr) {
                           tmp1 = I->getOperand(0);
                           arrayName = tmp1->getName();
-                          //variableMap[I->getName()] = name;
+                          
                           errs() << "arrayName=" << arrayName << "\n";
                           right.arrayName = arrayName;
                       }
@@ -294,7 +291,7 @@ namespace {
                   //v1.push_back(left);
                   //v1.push_back(right);
                   
-                  errs() << "======================\n";
+                  //errs() << "======================\n";
                   
                   break;
                 }
@@ -306,7 +303,7 @@ namespace {
           }
           // for.end is the start of the for block
           if(!BB->getName().find("for.end", 0)) {
-            errs() << "for.end" << "\n";
+            //errs() << "for.end" << "\n";
           } 
         }
       }
@@ -353,29 +350,20 @@ namespace {
           
           if(v1.isLeft == 1 && v2.isLeft == 0 && v1.arrayName == v2.arrayName && v1.value == v2.value && v1.order <= v2.order){
             //errs() << v1.isLeft << v1.arrayName << v1.value << v2.arrayName  << v2.value << v1.order << v2.order << "\n";
-            errs() << "[flow   dependency] i=" << v1.order << " --> " << v2.order << "\n";
+            errs() << "[flow   dependency] " << v1.arrayName << "[" << v1.value << "] i=" << v1.order << " --> " << v2.order << "\n";
           }
           
           if(v1.isLeft == 1 && v2.isLeft == 1 && v1.arrayName == v2.arrayName && v1.value == v2.value && v1.order < v2.order){
             //errs() << v1.isLeft << v1.arrayName << v1.value << v2.arrayName  << v2.value << v1.order << v2.order << "\n";
-            errs() << "[output dependency] i=" << v1.order << " --> " << v2.order << "\n";
+            errs() << "[output dependency] " << v1.arrayName << "[" << v1.value << "] i=" << v1.order << " --> " << v2.order << "\n";
           }
           if(v1.isLeft == 0 && v2.isLeft == 1 && v1.arrayName == v2.arrayName && v1.value == v2.value && v1.order < v2.order){
             //errs() << v1.isLeft << v1.arrayName << v1.value << v2.arrayName  << v2.value << v1.order << v2.order << "\n";
-            errs() << "[anti   dependency] i=" << v1.order << " --> " << v2.order << "\n";
+            errs() << "[anti   dependency] " << v1.arrayName << "[" << v1.value << "] i=" << v1.order << " --> " << v2.order << "\n";
           }
           
         }
       }
-      
-      /*
-      for(auto &v1: vecFinal) {
-        errs() << v1.arrayName << v1.value << v1.order << v1.isLeft << "\n";
-      }
-      */
-      
-
-      
 
       return false;
     }
